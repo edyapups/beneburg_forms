@@ -123,8 +123,13 @@ func makeFormHandler(bot *tgbotapi.BotAPI, adminId int64) func(http.ResponseWrit
 		}
 		zap.S().Debug("Got form ", form)
 		text := getFormTextResult(form)
-		msg := tgbotapi.NewMessage(adminId, text)
+		msg := tgbotapi.NewMessage(form.UserId.Int64(), "Отлично, мы получили твою анкету. Вот как она выглядит:\n\n"+text)
 		msg.ParseMode = tgbotapi.ModeHTML
+		if _, err = bot.Send(msg); err != nil {
+			zap.S().Error(err)
+		}
+		msg.Text = text
+		msg.BaseChat.ChatID = adminId
 		if _, err = bot.Send(msg); err != nil {
 			zap.S().Error(err)
 		}
