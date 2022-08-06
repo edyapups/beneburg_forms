@@ -68,7 +68,7 @@ func main() {
 		)
 		err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 		zap.S().Info(err)
-		notifyError(bot, adminId, err)
+		notifyAdmin(bot, adminId, err)
 	}()
 
 	// Start handling bot updates
@@ -94,7 +94,7 @@ func main() {
 		msg.AllowSendingWithoutReply = true
 		msg.DisableWebPagePreview = true
 		if _, err = bot.Send(msg); err != nil {
-			notifyError(bot, adminId, err)
+			notifyAdmin(bot, adminId, err)
 			zap.S().Error(err)
 		}
 
@@ -103,7 +103,7 @@ func main() {
 		}
 		msg = tgbotapi.NewMessage(adminId, text)
 		if _, err = bot.Send(msg); err != nil {
-			notifyError(bot, adminId, err)
+			notifyAdmin(bot, adminId, err)
 			zap.S().Error(err)
 		}
 	}
@@ -114,30 +114,39 @@ func makeFormHandler(bot *tgbotapi.BotAPI, adminId int64) func(http.ResponseWrit
 		data, err := io.ReadAll(request.Body)
 		if err != nil {
 			zap.S().Error(err)
-			notifyError(bot, adminId, err)
+			notifyAdmin(bot, adminId, err)
+			return
 		}
-		form, err := marshalResponse(data)
+
+		form, err := marshalFormData(data)
 		if err != nil {
 			zap.S().Error(err, string(data))
-			notifyError(bot, adminId, err)
+			notifyAdmin(bot, adminId, err)
+			return
 		}
+
 		zap.S().Debug("Got form ", form)
+
 		text := getFormTextResult(form)
 		msg := tgbotapi.NewMessage(form.UserId.Int64(), "Отлично, мы получили твою анкету. Вот как она выглядит:\n\n"+text)
 		msg.ParseMode = tgbotapi.ModeHTML
 		if _, err = bot.Send(msg); err != nil {
 			zap.S().Error(err)
+			return
 		}
+
 		msg.Text = text
 		msg.BaseChat.ChatID = adminId
 		if _, err = bot.Send(msg); err != nil {
 			zap.S().Error(err)
+			return
 		}
-		zap.S().Debug("Sent message ", msg.ChatID)
+
+		zap.S().Debug("Sent message to ", msg.ChatID)
 	}
 }
 
-func notifyError(bot *tgbotapi.BotAPI, adminId int64, err error) {
+func notifyAdmin(bot *tgbotapi.BotAPI, adminId int64, err error) {
 	msg := tgbotapi.NewMessage(adminId, err.Error())
 	_, _ = bot.Send(msg)
 }
@@ -155,7 +164,7 @@ type FormData struct {
 	UserId    big.Int `json:"user_id"`
 }
 
-func marshalResponse(data []byte) (*FormData, error) {
+func marshalFormData(data []byte) (*FormData, error) {
 	var resp FormData
 	err := json.Unmarshal(data, &resp)
 	if err != nil {
@@ -265,6 +274,7 @@ func getUrlGenerator(formUrl string) (func(userID int64) string, error) {
 		return nil, err
 	}
 	query := parsedUrl.Query()
+
 	return func(userID int64) string {
 		query.Set("user_id", hideID(userID))
 		parsedUrl.RawQuery = query.Encode()
