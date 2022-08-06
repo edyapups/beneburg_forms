@@ -128,7 +128,10 @@ func makeFormHandler(bot *tgbotapi.BotAPI, adminId int64) func(http.ResponseWrit
 		zap.S().Debug("Got form ", form)
 
 		text := getFormTextResult(form)
-		msg := tgbotapi.NewMessage(form.UserId.Int64(), "Отлично, мы получили твою анкету. Вот как она выглядит:\n\n"+text)
+		msg := tgbotapi.NewMessage(
+			form.UserId.Int64(),
+			"Отлично, мы получили твою анкету, решение по ней будет в ближайшие сутки. Вот как она выглядит:\n\n"+text,
+		)
 		msg.ParseMode = tgbotapi.ModeHTML
 		if _, err = bot.Send(msg); err != nil {
 			zap.S().Error(err)
@@ -180,11 +183,6 @@ func marshalFormData(data []byte) (*FormData, error) {
 
 func getFormTextResult(form *FormData) string {
 	result := strings.Builder{}
-
-	result.WriteString(fmt.Sprintf(
-		"<b><a href=\"tg://user?id=%s\">Профиль</a></b>\n",
-		form.UserId.String(),
-	))
 
 	// Name
 	result.WriteString(fmt.Sprintf("\n<b>Как обращаться:</b>\n%s", tgbotapi.EscapeText(tgbotapi.ModeHTML, form.Name)))
@@ -246,7 +244,8 @@ func getFormTextResult(form *FormData) string {
 
 	// ID
 	result.WriteString(fmt.Sprintf(
-		"\n\n<i>ID пользователя: </i><code>%s</code>",
+		"\n\n<i>ID <a href=\"tg://user?id=%s\">пользователя</a>: </i><code>%s</code>",
+		form.UserId.String(),
 		form.UserId.String(),
 	))
 
